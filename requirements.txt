@@ -1,0 +1,15 @@
+pip install --upgrade pip
+
+pip install streamlit==1.38.0
+pip install langchain==0.2.14
+pip install langchain-community==0.2.11
+pip install langchain-core==0.2.28
+pip install transformers==4.46.2
+pip install torch==2.2.2
+pip install sentencepiece==0.2.0
+pip install PyMuPDF==1.24.9
+pip install requests==2.32.3
+pip install beautifulsoup4==4.12.3
+pip install lxml==5.2.1
+pip install huggingface-hub>=0.25.2
+pip semantic scholar

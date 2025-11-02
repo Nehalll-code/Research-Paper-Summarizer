@@ -1,0 +1,10 @@
+#Currently
+
+For literature review/quick screening:
+→ Use SEARCH tab (fast, abstracts)
+
+For deep analysis/understanding:
+→ Use UPLOAD tab (detailed, full papers)
+
+For your project/portfolio:
+→ Use UPLOAD tab (shows better summarization quality)
