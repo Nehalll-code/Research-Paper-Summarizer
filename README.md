@@ -1,4 +1,4 @@
-text
+
 <div align="center">
 
 # 📚 Research Paper Summarizer
@@ -67,7 +67,6 @@ Python 3.8+
 pip 21.0+
 8GB RAM minimum (16GB recommended)
 
-text
 
 ### Quick Start
 
@@ -86,7 +85,6 @@ Run application
 
 streamlit run app.py
 
-text
 
 ---
 
@@ -108,7 +106,6 @@ Tab 1: Search Papers
 
     Generate summaries
 
-text
 
 ### Upload & Analyze
 
@@ -124,7 +121,6 @@ Tab 2: Upload PDFs
 
     Generate comprehensive summaries
 
-text
 
 ### API Usage (Coming Soon)
 
@@ -141,7 +137,6 @@ Summarize
 
 summaries = [summarizer.summarize(p['abstract']) for p in papers]
 
-text
 
 ---
 
@@ -176,8 +171,6 @@ Training Data: 1M+ arXiv papers
 Max Input: 1024 tokens (~4000 chars)
 Max Output: 256 tokens (~1000 chars)
 ROUGE-L: 0.42 (arXiv test set)
-
-text
 
 ---
 
@@ -224,7 +217,6 @@ Future: RAG
 langchain>=0.0.352
 faiss-cpu>=1.7.4
 
-text
 
 ### Model Configuration
 
@@ -235,7 +227,6 @@ do_sample = False
 early_stopping = True
 num_beams = 4
 
-text
 
 ---
 
@@ -284,7 +275,6 @@ Type checking
 
 mypy src/
 
-text
 
 ---
 
@@ -300,7 +290,6 @@ Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction...
 
-text
 
 ---
 
@@ -324,4 +313,5 @@ text
 **[⬆ Back to Top](#-research-paper-summarizer)**
 
 </div>
+
 
