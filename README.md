@@ -46,7 +46,7 @@ text
 | **Batch Processing** | Multi-document analysis with meta-summaries | ✅ Production |
 | **Export** | Download summaries in text format | ✅ Production |
 | **RAG Integration** | LangChain-powered Q&A (Phase 2) | 🚧 Q1 2026 |
-| **Vector Search** | FAISS semantic search (Phase 2) | 🚧 Q1 2026 |
+| **Vector Search** | FAISS semantic search (Phase 2) | 🚧 Q1 2026 
 
 ### Technical Features
 
@@ -56,7 +56,6 @@ text
 - **Supported Formats**: PDF, text abstracts
 - **Data Sources**: arXiv, Semantic Scholar (expandable)
 - **UI Framework**: Streamlit with custom CSS
-- **Deployment Ready**: Docker support planned
 
 ---
 
@@ -74,7 +73,7 @@ text
 
 Clone repository
 
-git clone https://github.com/YOUR_USERNAME/ResearchPaperSummarizer.git
+git clone (https://github.com/Nehalll-code/Research-Paper-Summarizer)
 cd ResearchPaperSummarizer
 Create virtual environment
 
@@ -86,13 +85,6 @@ pip install -r requirements.txt
 Run application
 
 streamlit run app.py
-
-text
-
-### Docker (Coming Soon)
-
-docker pull YOUR_USERNAME/research-paper-summarizer:latest
-docker run -p 8501:8501 research-paper-summarizer
 
 text
 
@@ -153,35 +145,6 @@ text
 
 ---
 
-## 🏗️ Architecture
-
-┌─────────────────────────────────────────────────────┐
-│ User Interface │
-│ (Streamlit App) │
-└───────────────────┬─────────────────────────────────┘
-│
-┌───────────┴───────────┐
-│ │
-┌───────▼──────┐ ┌───────▼──────┐
-│ Retrieval │ │ Extraction │
-│ Module │ │ Module │
-│ │ │ │
-│ - arXiv API │ │ - PyPDF2 │
-│ - S2 API │ │ - URL Fetch │
-└───────┬──────┘ └───────┬──────┘
-│ │
-└──────────┬───────────┘
-│
-┌───────▼──────────┐
-│ Summarization │
-│ Module │
-│ │
-│ - PEGASUS-ArXiv │
-│ - Meta-Summary │
-└──────────────────┘
-
-text
-
 ### Component Overview
 
 | Component | Technology | Purpose |
@@ -218,28 +181,6 @@ text
 
 ---
 
-## 🗂️ Project Structure
-
-research-paper-summarizer/
-├── src/
-│ ├── init.py
-│ ├── paper_retrieval.py # arXiv & Semantic Scholar integration
-│ ├── pdf_extractor.py # PDF text extraction
-│ ├── summarizer.py # PEGASUS model wrapper
-│ ├── ui_components.py # Custom Streamlit components
-│ └── vector_store.py # [Phase 2] FAISS integration
-│
-├── app.py # Main Streamlit application
-├── requirements.txt # Python dependencies
-├── .gitignore # Git ignore rules
-├── README.md # This file
-├── LICENSE # MIT License
-└── Dockerfile # [Coming Soon] Container config
-
-text
-
----
-
 ## 🛣️ Roadmap
 
 ### Phase 1: Core Platform ✅ (Completed Nov 2025)
@@ -259,24 +200,6 @@ text
 - [ ] Q&A over papers
 - [ ] Source attribution
 - [ ] Advanced filtering
-
-### Phase 3: Production Features 📋 (Q2 2026)
-
-- [ ] User authentication
-- [ ] Paper comparison
-- [ ] Citation analysis
-- [ ] REST API
-- [ ] Docker deployment
-- [ ] Cloud hosting (AWS/GCP)
-
-### Phase 4: Enterprise 🎯 (Future)
-
-- [ ] Multi-language support
-- [ ] Custom fine-tuning
-- [ ] Team collaboration
-- [ ] Analytics dashboard
-- [ ] Integration plugins
-
 ---
 
 ## 🔬 Technical Details
@@ -396,36 +319,9 @@ text
 
 ---
 
-## 📞 Contact
-
-**Author**: [Your Name]
-
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://linkedin.com/in/yourprofile)
-[![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/yourusername)
-[![Email](https://img.shields.io/badge/Email-D14836?style=flat&logo=gmail&logoColor=white)](mailto:your.email@example.com)
-[![Portfolio](https://img.shields.io/badge/Portfolio-FF7139?style=flat&logo=firefox&logoColor=white)](https://yourportfolio.com)
-
----
-
-## 📊 Repository Stats
-
-![GitHub stars](https://img.shields.io/github/stars/yourusername/ResearchPaperSummarizer?style=social)
-![GitHub forks](https://img.shields.io/github/forks/yourusername/ResearchPaperSummarizer?style=social)
-![GitHub issues](https://img.shields.io/github/issues/yourusername/ResearchPaperSummarizer)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/yourusername/ResearchPaperSummarizer)
-
----
-
-## 🌟 Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=yourusername/ResearchPaperSummarizer&type=Date)](https://star-history.com/#yourusername/ResearchPaperSummarizer&Date)
-
----
-
-<div align="center">
-
 ### 💡 Built for Researchers, by Researchers
 
 **[⬆ Back to Top](#-research-paper-summarizer)**
 
 </div>
+
