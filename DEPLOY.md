@@ -1,33 +1,42 @@
 # Deploying
 
-The app needs several GB of RAM (PEGASUS + embedding model), so use a host with at
-least 4 GB. Streamlit Community Cloud's free tier (~1 GB) is too small.
+Two builds share one codebase:
 
-## Hugging Face Spaces (free, 16 GB CPU)
+| | Full (local) | Lite (hosted) |
+|---|---|---|
+| Summaries | local PEGASUS-ArXiv | Groq |
+| Embeddings | sentence-transformers (torch) | fastembed (ONNX) |
+| Install | `requirements-full.txt` | `requirements.txt` |
+| RAM | 4 GB+ | ~512 MB - 1 GB |
 
-1. Create a Space at huggingface.co/new-space, SDK = **Docker**.
-2. Add this to the top of `README.md` in the Space repo:
-   ```
-   ---
-   title: Research Paper Summarizer
-   sdk: docker
-   app_port: 7860
-   ---
-   ```
-3. Space **Settings -> Variables and secrets -> New secret**: `GROQ_API_KEY` = your key.
-   (Optional variable: `GROQ_MODEL`.)
-4. Push the code:
-   ```
-   git remote add space https://huggingface.co/spaces/<user>/<space>
-   git push space main
-   ```
-   Never push `.env`; it is git-ignored and in `.dockerignore`.
-5. The first build takes several minutes. The first PEGASUS/embedding load downloads
-   the models, so the first request is slow.
+Lite mode turns on when `LITE_MODE=1` is set, or when `sentence-transformers`
+is not installed. Answers always come from Groq, so every host needs `GROQ_API_KEY`.
 
-## Local container check
+## Streamlit Community Cloud (free, ~1 GB, recommended)
+
+1. Push this repo to GitHub (`.env` is git-ignored; never commit keys).
+2. share.streamlit.io -> **Create app** -> pick the repo, branch `main`, file `app.py`.
+3. **Advanced settings -> Secrets**, add:
+   ```
+   GROQ_API_KEY = "your_key"
+   LITE_MODE = "1"
+   ```
+4. Deploy. The first question is slow while the embedding model downloads.
+
+## Render (free, 512 MB, sleeps when idle)
+
+1. Push to GitHub, then Render -> **New -> Blueprint** and pick the repo
+   (it reads `render.yaml`).
+2. Set the `GROQ_API_KEY` env var when prompted.
+3. If the service runs out of memory, use Streamlit Cloud instead.
+
+Vercel is not suitable: it only runs short serverless functions, and Streamlit
+needs a long-running server with websockets.
+
+## Full build in a container (needs 4 GB+ RAM)
 
 ```
-docker build -t paper-summarizer .
-docker run -p 7860:7860 -e GROQ_API_KEY=your_key paper-summarizer
+docker build -t paper-chat .
+docker run -p 7860:7860 -e GROQ_API_KEY=your_key paper-chat
 ```
+Hugging Face Docker Spaces now require a PRO subscription for this.

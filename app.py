@@ -16,8 +16,7 @@ load_dotenv(Path(__file__).parent / ".env")  # GROQ_API_KEY
 
 from src.paper_retrieval import PaperRetriever
 from src.pdf_extractor import extract_text_from_pdf_url
-from src.rag import GROQ_MODEL, PaperIndex, paper_label, stream_answer
-from src.summarizer import PaperSummarizer
+from src.rag import GROQ_MODEL, LITE, PaperIndex, paper_label, stream_answer
 from src.theme import inject_css
 
 st.set_page_config(
@@ -47,6 +46,10 @@ for key, default in {
 
 @st.cache_resource(show_spinner=False)
 def get_summarizer():
+    if LITE:  # hosted build: Groq summaries, no torch
+        from src.groq_summarizer import GroqSummarizer
+        return GroqSummarizer()
+    from src.summarizer import PaperSummarizer
     return PaperSummarizer()
 
 
@@ -112,7 +115,7 @@ def summarize_library():
     keep = [(n, t) for n, t in zip(names, texts) if t]
     if not keep:
         return "There is no text to summarize in your library."
-    with st.spinner("Loading PEGASUS-ArXiv (the first run is slow)..."):
+    with st.spinner("Preparing summarizer (the first run can be slow)..."):
         summarizer = get_summarizer()
     with st.spinner(f"Summarizing {len(keep)} paper(s)..."):
         if len(keep) == 1:
@@ -242,6 +245,8 @@ with st.sidebar:
         st.download_button("📥 Download chat", transcript, "paper_chat.txt", use_container_width=True)
 
     st.markdown("<div class='side-label'>Status</div>", unsafe_allow_html=True)
+    if LITE:
+        st.caption("Lite mode: Groq summaries, ONNX embeddings")
     if os.environ.get("GROQ_API_KEY"):
         st.markdown(f"<div class='status'>🟢 Groq connected<br>{GROQ_MODEL}</div>", unsafe_allow_html=True)
     else:
@@ -302,7 +307,7 @@ if prompt:
         try:
             if prompt == SUMMARIZE_CMD:
                 reply["content"] = summarize_library()
-                reply["backend"] = "pegasus-arxiv"
+                reply["backend"] = f"groq:{GROQ_MODEL}" if LITE else "pegasus-arxiv"
                 st.markdown(reply["content"])
             else:
                 idx = ensure_index()

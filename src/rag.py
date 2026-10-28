@@ -4,6 +4,7 @@ Retrieval is fully local; answers come from Groq (free tier) when GROQ_API_KEY
 is set, otherwise an extractive answer built from the top passages.
 """
 import functools
+import importlib.util
 import logging
 import os
 
@@ -17,10 +18,17 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 
+# LITE mode: no torch/PEGASUS; ONNX embeddings (fastembed) + Groq summaries. Fits ~512MB-1GB hosts.
+LITE = os.environ.get("LITE_MODE") == "1" or importlib.util.find_spec("sentence_transformers") is None
+
+
 @functools.lru_cache(maxsize=1)
 def _load_embedder():
+    logger.info("Loading embedding model %s (lite=%s)", EMBED_MODEL, LITE)
+    if LITE:
+        from fastembed import TextEmbedding
+        return TextEmbedding(EMBED_MODEL)
     from sentence_transformers import SentenceTransformer
-    logger.info("Loading embedding model %s", EMBED_MODEL)
     return SentenceTransformer(EMBED_MODEL, device="cpu")
 
 
@@ -59,6 +67,9 @@ class PaperIndex:
         return self._embedder
 
     def _embed(self, texts):
+        if LITE:
+            vecs = np.array(list(self.embedder.embed(texts)), dtype="float32")
+            return vecs / np.linalg.norm(vecs, axis=1, keepdims=True)
         vecs = self.embedder.encode(
             texts, normalize_embeddings=True, show_progress_bar=False
         )

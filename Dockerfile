@@ -8,10 +8,10 @@ ENV PATH=/home/user/.local/bin:$PATH \
     PYTHONUNBUFFERED=1
 WORKDIR /home/user/app
 
-COPY --chown=user requirements.txt .
+COPY --chown=user requirements-full.txt .
 # CPU-only torch keeps the image small
 RUN pip install --no-cache-dir torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu \
- && pip install --no-cache-dir -r requirements.txt
+ && pip install --no-cache-dir -r requirements-full.txt
 
 COPY --chown=user . .
 
