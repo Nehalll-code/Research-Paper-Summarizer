@@ -1,20 +1,15 @@
-
 <div align="center">
 
-# 📚 Research Paper Summarizer
+# 📚 Paper Chat
 
-### AI-Powered Scientific Literature Analysis Platform
+### Chat with your research papers — cited answers, semantic search, and summaries
 
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Transformers](https://img.shields.io/badge/🤗_Transformers-4.34-FFD21E?style=for-the-badge)](https://huggingface.co/transformers/)
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://nehalll-code-research-paper-summarizer-app-frqpfo.streamlit.app/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Groq](https://img.shields.io/badge/LLM-Groq-F55036?style=for-the-badge)](https://groq.com/)
+[![FAISS](https://img.shields.io/badge/Vector_Search-FAISS-0467DF?style=for-the-badge)](https://github.com/facebookresearch/faiss)
 
-[![arXiv](https://img.shields.io/badge/Data-arXiv_API-B31B1B?style=flat-square&logo=arxiv&logoColor=white)](https://arxiv.org/)
-[![Semantic Scholar](https://img.shields.io/badge/Data-Semantic_Scholar-0080FF?style=flat-square)](https://www.semanticscholar.org/)
-[![PEGASUS](https://img.shields.io/badge/Model-PEGASUS_ArXiv-orange?style=flat-square&logo=google&logoColor=white)](https://huggingface.co/google/pegasus-arxiv)
-
-[Demo](#-demo) • [Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Architecture](#-architecture) • [Roadmap](#-roadmap)
+[Live demo](https://nehalll-code-research-paper-summarizer-app-frqpfo.streamlit.app/) • [Features](#-features) • [Setup](#-quick-start) • [Groq key](#-getting-and-adding-your-groq-api-key) • [How it works](#-how-it-works) • [Deploy](#-deployment) • [Roadmap](#-roadmap)
 
 </div>
 
@@ -22,312 +17,264 @@
 
 ## 🎯 Overview
 
-**Research Paper Summarizer** is an intelligent document analysis platform that leverages state-of-the-art NLP models to automate the summarization of academic literature. Built for researchers, students, and professionals who need to process large volumes of scientific papers efficiently.
+**Paper Chat** is a chat-style assistant for scientific literature. Build a library of papers by searching arXiv and Semantic Scholar, uploading PDFs, or pasting a PDF link. Then ask questions in plain English. Answers stream in word by word and cite the exact passages they came from, so you can verify every claim.
 
-### Key Highlights
-
-- 🤖 **PEGASUS-ArXiv**: Specialized transformer model trained on 1M+ arXiv papers
-- 🔍 **Multi-Source Retrieval**: Integrates arXiv and Semantic Scholar APIs
-- 📄 **Full-Text Processing**: Extracts and analyzes complete PDF documents
-- 🎨 **Modern Interface**: Professional dark-themed Streamlit UI
-- ⚡ **Batch Processing**: Summarize multiple papers with meta-analysis
+It started as a PEGASUS-based summarizer (Phase 1) and now includes a full retrieval-augmented generation (RAG) pipeline (Phase 2).
 
 ---
 
 ## ✨ Features
 
-### Core Capabilities
-
-| Feature | Description | Status |
-|---------|-------------|--------|
-| **Paper Retrieval** | Search across arXiv & Semantic Scholar databases | ✅ Production |
-| **PDF Extraction** | Full-text extraction from local/remote PDFs | ✅ Production |
-| **AI Summarization** | PEGASUS-based abstractive summarization | ✅ Production |
-| **Batch Processing** | Multi-document analysis with meta-summaries | ✅ Production |
-| **Export** | Download summaries in text format | ✅ Production |
-| **RAG Integration** | LangChain-powered Q&A (Phase 2) | 🚧 Q1 2026 |
-| **Vector Search** | FAISS semantic search (Phase 2) | 🚧 Q1 2026 
-
-### Technical Features
-
-- **Model**: Google PEGASUS fine-tuned on arXiv corpus
-- **Context Window**: 1024 tokens (~4000 characters)
-- **Summary Range**: 50-500 words (configurable)
-- **Supported Formats**: PDF, text abstracts
-- **Data Sources**: arXiv, Semantic Scholar (expandable)
-- **UI Framework**: Streamlit with custom CSS
+| Feature | Description |
+|---------|-------------|
+| **Chat with your papers** | Streaming answers with inline `[1]`, `[2]` citations and expandable source passages |
+| **Follow-up questions** | The last few turns are sent along, so you can ask "what about its limitations?" |
+| **Multi-source retrieval** | Search arXiv and Semantic Scholar, then add results to your library |
+| **PDF upload and links** | Extract text from uploaded PDFs or a direct PDF URL |
+| **Semantic search** | Papers are chunked, embedded and indexed with FAISS; every paper contributes its best passage so none is ignored |
+| **Summaries** | One click to summarize the whole library (per paper plus a combined synthesis) |
+| **Filters** | Limit questions to one paper or to papers from a given year; number of retrieved passages is adjustable |
+| **Search-only mode** | See the top matching passages without generating an answer |
+| **Download chat** | Export the conversation as text |
+| **Works without a key** | No Groq key? You still get semantic search results (no written answers) |
 
 ---
 
-## 💬 Ask Papers (RAG)
-
-Phase 2 adds retrieval-augmented Q&A over your paper library:
-
-- Build a library from search results and uploaded PDFs (sidebar)
-- Papers are chunked, embedded locally (all-MiniLM-L6-v2) and indexed with FAISS
-- Ask questions in a chat; answers cite numbered source passages
-- Filter by paper, source and year, or use semantic search only
-- Answers come from Groq (free tier); set `GROQ_API_KEY` in a `.env` file
-  (see `.env.example`). Without a key you still get the top matching passages.
-
-Install the full local build with `pip install -r requirements-full.txt` (lite hosted build: `requirements.txt`). See [DEPLOY.md](DEPLOY.md) for deployment.
-
----
-
-## 🚀 Installation
+## 🚀 Quick start
 
 ### Prerequisites
 
-Python 3.8+
-pip 21.0+
-8GB RAM minimum (16GB recommended)
+- Python 3.10 or newer
+- A free [Groq API key](#-getting-and-adding-your-groq-api-key) for written answers and (in lite mode) summaries
+- Full local build only: about 4 GB of free RAM
 
+### Install
 
-### Quick Start
-
-Clone repository
-
-git clone (https://github.com/Nehalll-code/Research-Paper-Summarizer)
-cd ResearchPaperSummarizer
-Create virtual environment
+```bash
+git clone https://github.com/Nehalll-code/Research-Paper-Summarizer
+cd Research-Paper-Summarizer
 
 python -m venv hf_venv
-source hf_venv/bin/activate # On Windows: hf_venv\Scripts\activate
-Install dependencies
+# Windows (PowerShell):  .\hf_venv\Scripts\Activate.ps1
+# macOS / Linux:         source hf_venv/bin/activate
+```
 
-pip install -r requirements.txt
-Run application
+Pick one build:
 
+| Build | Command | Summaries | Embeddings | RAM |
+|-------|---------|-----------|------------|-----|
+| **Full** (local) | `pip install -r requirements-full.txt` | PEGASUS-ArXiv, runs locally | sentence-transformers (torch) | 4 GB+ |
+| **Lite** (hosted) | `pip install -r requirements.txt` | Groq | fastembed (ONNX) | about 0.5 – 1 GB |
+
+Lite mode switches on automatically when `sentence-transformers` is not installed, or when you set `LITE_MODE=1`.
+
+### Run
+
+```bash
 streamlit run app.py
+```
 
+Open http://localhost:8501.
+
+---
+
+## 🔑 Getting and adding your Groq API key
+
+Groq has a free tier, so you don't need a credit card. The key is used for written answers and, in lite mode, for summaries.
+
+### 1. Get a key
+
+1. Go to [console.groq.com](https://console.groq.com) and sign up or log in.
+2. Open **API Keys** in the left menu.
+3. Click **Create API Key**, give it a name, and copy it right away (it starts with `gsk_` and is only shown once).
+
+### 2. Add it — choose where you run the app
+
+**Running locally (recommended: a `.env` file)**
+
+1. In the project folder, copy the template: `copy .env.example .env` (Windows) or `cp .env.example .env` (macOS / Linux).
+2. Open `.env` and set:
+   ```
+   GROQ_API_KEY=gsk_your_key_here
+   ```
+3. Restart Streamlit. The app loads `.env` automatically. It is git-ignored, so the key is never committed.
+
+**Running locally (other options)**
+
+- One terminal only (PowerShell): `$env:GROQ_API_KEY="gsk_your_key_here"`
+- One terminal only (macOS / Linux): `export GROQ_API_KEY=gsk_your_key_here`
+- Permanent on Windows: `setx GROQ_API_KEY "gsk_your_key_here"`, then open a new terminal.
+
+**Streamlit Community Cloud**
+
+1. Open your app's page and click **Manage app**, then the **⋮** menu, then **Settings**, then **Secrets**.
+2. Add:
+   ```toml
+   GROQ_API_KEY = "gsk_your_key_here"
+   LITE_MODE = "1"
+   ```
+3. Click **Save**, then **Reboot app**.
+
+**Render**
+
+Dashboard, then your service, then **Environment**, then **Add Environment Variable**: `GROQ_API_KEY` = your key. Render redeploys automatically.
+
+### 3. Check it works
+
+The sidebar status should show **🟢 Groq connected** and the model name. Under each answer you will see a small label such as `groq:openai/gpt-oss-120b`. If it says `extractive` instead, no key was found, or the Groq call failed and the app fell back to showing passages.
+
+### Notes
+
+- **Never commit or share your key.** If it leaks, delete it in the Groq console and create a new one.
+- To use a different Groq model, set `GROQ_MODEL` (for example in `.env`). The default is `openai/gpt-oss-120b`. Groq retires models from time to time; the list of available ones is in the Groq console.
+- The free tier has rate limits. If you hit them, wait a bit and retry.
 
 ---
 
 ## 💻 Usage
 
-### Search & Summarize
-
-Tab 1: Search Papers
-
-    Enter keywords: "attention mechanisms transformers"
-
-    Select result count: 5
-
-    Click "Search Papers"
-
-    Navigate to "Summarize" tab
-
-    Adjust summary parameters
-
-    Generate summaries
-
-
-### Upload & Analyze
-
-Tab 2: Upload PDFs
-
-    Upload PDF file(s) or paste URL
-
-    Click "Extract Text from PDFs"
-
-    Navigate to "Summarize" tab
-
-    Configure summary length
-
-    Generate comprehensive summaries
-
-
-### API Usage (Coming Soon)
-
-from src.summarizer import PaperSummarizer
-from src.paper_retrieval import PaperRetriever
-Initialize
-
-summarizer = PaperSummarizer()
-retriever = PaperRetriever()
-Retrieve papers
-
-papers = retriever.search("quantum computing", max_results=5)
-Summarize
-
-summaries = [summarizer.summarize(p['abstract']) for p in papers]
-
+1. Click **➕ Add papers** in the sidebar.
+   - **Search**: enter keywords, tick the results you want, click *Add selected*.
+   - **Upload PDFs**: choose one or more files, click *Add uploaded PDFs*.
+   - **PDF link**: paste a direct PDF URL (for example `https://arxiv.org/pdf/1706.03762`).
+2. Ask a question in the chat box, or click one of the suggestions.
+3. Open **📎 sources** under an answer to read the passages it was based on.
+4. Click **✨ Summarize my library** for summaries of every paper plus a combined one.
+5. Use **⚙️ Settings** to limit questions to one paper, filter by year, change how many passages are retrieved, or switch to search-only.
 
 ---
 
-### Component Overview
+## 🏗️ How it works
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **Frontend** | Streamlit | User interface & interaction |
-| **Retrieval** | arXiv API, Semantic Scholar | Paper discovery |
-| **Extraction** | PyPDF2, Requests | Full-text extraction |
-| **Summarization** | Transformers (PEGASUS) | Abstractive summarization |
-| **Storage** | Session state | Temporary data management |
+```
+ PDFs / arXiv / Semantic Scholar
+              │
+              ▼
+   text extraction (PyPDF2)
+              │
+              ▼
+   chunking (LangChain RecursiveCharacterTextSplitter, 1000 chars, 150 overlap)
+              │
+              ▼
+   embeddings (all-MiniLM-L6-v2; sentence-transformers or fastembed/ONNX)
+              │
+              ▼
+   FAISS index (cosine similarity)         ◄── your question
+              │                                  │
+              ▼                                  ▼
+   balanced retrieval: best chunk from every paper first, then fill by score
+              │
+              ▼
+   Groq LLM, streamed, answers only from the retrieved passages, with citations
+```
+
+| Component | Technology |
+|-----------|-----------|
+| Frontend | Streamlit (chat UI, custom CSS in `src/theme.py`) |
+| Retrieval | arXiv API, Semantic Scholar |
+| Extraction | PyPDF2, requests |
+| Chunking | LangChain text splitters |
+| Embeddings | all-MiniLM-L6-v2 via sentence-transformers (full) or fastembed (lite) |
+| Vector search | FAISS (`IndexFlatIP` on normalized vectors) |
+| Answers | Groq (OpenAI-compatible API, streaming) |
+| Summaries | PEGASUS-ArXiv locally (full) or Groq (lite) |
+
+### Project structure
+
+```
+app.py                    Streamlit app (chat UI, library, add-papers panel)
+src/
+  rag.py                  Chunking, FAISS index, balanced search, Groq streaming
+  groq_summarizer.py      Lite-mode summarizer (Groq)
+  summarizer.py           PEGASUS-ArXiv summarizer (full build)
+  paper_retrieval.py      arXiv + Semantic Scholar search
+  pdf_extractor.py        PDF text extraction from URLs
+  theme.py                Chat-style CSS
+tests/test_rag.py         Retrieval, filters and fallback tests
+requirements.txt          Lite dependencies (hosted)
+requirements-full.txt     Full local dependencies (PEGASUS + torch)
+render.yaml, Dockerfile   Deployment configs
+DEPLOY.md                 Deployment notes
+```
+
+### Run the tests
+
+```bash
+pip install pytest
+pytest tests/
+```
 
 ---
 
-## 📊 Performance
+## ☁️ Deployment
 
-### Benchmarks (CPU: Intel i7-10750H)
+The app is deployed on Streamlit Community Cloud in lite mode. See [DEPLOY.md](DEPLOY.md) for the full steps, including Render and Docker. In short:
 
-| Operation | Time | Details |
-|-----------|------|---------|
-| Model Loading | ~30s | One-time per session |
-| Single Abstract | ~5s | 500 words → 150 words |
-| Full PDF (10 pages) | ~40s | 5000 words → 300 words |
-| 5 Papers Batch | ~3min | Including meta-summary |
+1. Push the repo to GitHub.
+2. At [share.streamlit.io](https://share.streamlit.io), choose **Create app**, pick the repo, branch `main`, file `app.py`.
+3. In **Advanced settings → Secrets** add `GROQ_API_KEY` and `LITE_MODE = "1"` (see [above](#-getting-and-adding-your-groq-api-key)).
+4. Deploy. The first question is slow while the embedding model downloads.
 
-### Model Specifications
+Vercel is not suitable: Streamlit needs a long-running server with websockets.
 
-Model: google/pegasus-arxiv
-Parameters: 353M
-Training Data: 1M+ arXiv papers
-Max Input: 1024 tokens (~4000 chars)
-Max Output: 256 tokens (~1000 chars)
-ROUGE-L: 0.42 (arXiv test set)
+---
+
+## ⚠️ Limitations
+
+- Only text in PDFs is read. Scanned documents without a text layer, figures, and tables are not understood.
+- Papers found through search are indexed by abstract only; upload the PDF for full-text answers.
+- Answers are limited to the retrieved passages. If the right passage is not retrieved, the answer can miss it. Raise *Passages per answer* in Settings for broader questions.
+- The library lives in the browser session and is cleared on refresh.
+- On the free hosted tier the app sleeps when idle, and the first request after waking up is slow.
+- Generated answers can still contain mistakes. Check the cited sources.
 
 ---
 
 ## 🛣️ Roadmap
 
-### Phase 1: Core Platform ✅ (Completed Nov 2025)
+### Phase 1: Core platform ✅
 
-- [x] Multi-source paper retrieval
-- [x] PDF extraction & processing
-- [x] PEGASUS summarization
-- [x] Beautiful Streamlit UI
-- [x] Batch processing
-- [x] Export functionality
+- [x] Multi-source paper retrieval (arXiv, Semantic Scholar)
+- [x] PDF extraction
+- [x] PEGASUS-ArXiv summarization
+- [x] Batch summaries with a combined summary
 
-### Phase 2: RAG & Advanced Search 🚧 (Q1 2026)
+### Phase 2: RAG and chat ✅
 
 - [x] LangChain text splitting
-- [x] FAISS vector database
-- [x] Semantic search
-- [x] Q&A over papers (Groq)
-- [x] Source attribution
-- [x] Advanced filtering (paper, year)
----
+- [x] FAISS vector index and semantic search
+- [x] Q&A over papers with source attribution
+- [x] Filtering by paper and year
+- [x] Chat-style UI with streaming answers
+- [x] Hosted lite deployment
 
-## 🔬 Technical Details
+### Ideas
 
-### Dependencies
-
-Core ML
-
-transformers>=4.34.0
-torch>=2.0.1
-sentence-transformers>=2.2.2
-Data Processing
-
-PyPDF2>=3.0.1
-arxiv>=2.0.0
-semanticscholar>=0.5.0
-Web Framework
-
-streamlit>=1.28.1
-Future: RAG
-
-langchain>=0.0.352
-faiss-cpu>=1.7.4
-
-
-### Model Configuration
-
-model_name = "google/pegasus-arxiv"
-max_length = 300 # words
-min_length = 150 # words
-do_sample = False
-early_stopping = True
-num_beams = 4
-
-
----
-
-## 📈 Metrics & Evaluation
-
-### Quality Metrics
-
-| Metric | Score | Benchmark |
-|--------|-------|-----------|
-| ROUGE-1 | 0.45 | arXiv test set |
-| ROUGE-2 | 0.21 | arXiv test set |
-| ROUGE-L | 0.42 | arXiv test set |
-| BERTScore | 0.88 | Internal eval |
-
-### User Metrics
-
-- **Accuracy**: 87% user satisfaction (internal testing)
-- **Speed**: 6x faster than manual summarization
-- **Coverage**: Processes 95% of academic PDFs successfully
+- [ ] Persist libraries between visits
+- [ ] Link each source back to its arXiv page
+- [ ] Re-ranking for sharper retrieval
+- [ ] OCR for scanned PDFs
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these guidelines:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/AmazingFeature`)
-3. **Commit** changes (`git commit -m 'Add AmazingFeature'`)
-4. **Push** to branch (`git push origin feature/AmazingFeature`)
-5. **Open** a Pull Request
-
-### Development Setup
-
-Install dev dependencies
-
-pip install -r requirements-dev.txt
-Run tests
-
-pytest tests/
-Code formatting
-
-black src/ app.py
-flake8 src/ app.py
-Type checking
-
-mypy src/
-
+1. Fork the repository
+2. Create a branch: `git checkout -b feature/my-feature`
+3. Commit your changes and push the branch
+4. Open a pull request
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-MIT License
-
-Copyright (c) 2025 [Your Name]
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction...
-
+No license file has been added yet. Add one (for example MIT) before others reuse the code.
 
 ---
 
 ## 🙏 Acknowledgments
 
-### Research & Models
-- **Google Research** - PEGASUS model architecture
-- **arXiv** - Open access to scientific papers
-- **Semantic Scholar** - Academic search API
-- **Hugging Face** - Transformers library
-
-### Frameworks & Tools
-- **Streamlit** - Interactive data applications
-- **PyTorch** - Deep learning framework
-- **LangChain** - LLM application framework (Phase 2)
-
----
-
-### 💡 Built for Researchers, by Researchers
-
-**[⬆ Back to Top](#-research-paper-summarizer)**
-
-</div>
-
-
-
+- [Groq](https://groq.com/) for fast, free-tier LLM inference
+- [Google Research](https://github.com/google-research/pegasus) for PEGASUS
+- [arXiv](https://arxiv.org/) and [Semantic Scholar](https://www.semanticscholar.org/) for open paper data
+- [FAISS](https://github.com/facebookresearch/faiss), [LangChain](https://www.langchain.com/), [sentence-transformers](https://www.sbert.net/), [fastembed](https://github.com/qdrant/fastembed) and [Streamlit](https://streamlit.io/)
