@@ -206,6 +206,27 @@ pytest tests/
 
 ---
 
+## 📊 Measured results
+
+Measured on 28 Oct 2026 on a Windows laptop (CPU only, no GPU) with five well-known arXiv papers (Attention Is All You Need, BERT, ResNet, ViT, GPT-3): 466,229 characters of text, split into 551 chunks. This is a small single-machine check, not a rigorous benchmark.
+
+| Metric | Lite build (fastembed) | Full build (sentence-transformers) |
+|--------|------------------------|-------------------------------------|
+| PDF text extraction | about 1.7 s per paper | about 2.1 s per paper |
+| Embedding model load | 1.4 s | 11.3 s |
+| Indexing 551 chunks | 33 s | 41 s |
+| Search latency (embed query + FAISS) | 8 ms | 40 ms |
+| Right paper ranked #1 (10 hand-written queries) | 9 / 10 | 9 / 10 |
+| Right paper in top 5 (same queries) | 10 / 10 | 10 / 10 |
+
+- **Retrieval test:** two paraphrased questions per paper (for example "BLEU score on WMT 2014 English-to-German translation"). It checks that a passage from the correct paper is retrieved, not that the final answer is correct.
+- **Groq answers** (`openai/gpt-oss-120b`, streaming, 3 questions over a 2-paper library): first token after 1.4 – 1.6 s, complete answer after 1.6 – 1.8 s, about 80 – 120 words each. The free tier is rate limited; one test run returned HTTP 429, and the app then falls back to showing the matching passages.
+- **Not measured:** PEGASUS summary speed or quality, and answer correctness judged by people.
+
+Reproduce: load the five papers above, build the index with `PaperIndex().build(...)`, and time `search(...)`.
+
+---
+
 ## ☁️ Deployment
 
 The app is deployed on Streamlit Community Cloud in lite mode. See [DEPLOY.md](DEPLOY.md) for the full steps, including Render and Docker. In short:
