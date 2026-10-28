@@ -1,0 +1,6 @@
+hf_venv/
+.git/
+.env
+__pycache__/
+temp_*
+tests/

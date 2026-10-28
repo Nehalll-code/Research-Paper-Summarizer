@@ -33,7 +33,6 @@ venv.bak/
 .venv
 
 # Streamlit
-.streamlit/
 .streamlit/secrets.toml
 
 # IDE

@@ -1,388 +1,332 @@
 """
-Research Paper Summarizer - Streamlit Web Application
-Beautiful UI with custom components - FIXED VERSION
+Paper Chat - chat with your research papers (Streamlit).
+Chat-first UI: library in the sidebar, streaming cited answers from Groq.
 """
-import streamlit as st
+import io
 import os
 import sys
 from pathlib import Path
 
+import streamlit as st
+
 sys.path.insert(0, str(Path(__file__).parent))
+
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent / ".env")  # GROQ_API_KEY
 
 from src.paper_retrieval import PaperRetriever
 from src.pdf_extractor import extract_text_from_pdf_url
+from src.rag import GROQ_MODEL, PaperIndex, paper_label, stream_answer
 from src.summarizer import PaperSummarizer
-from src.ui_components import (
-    load_custom_css, header_with_icon, stat_card, info_box,
-    success_box, warning_box, error_box, summary_box
-)
+from src.theme import inject_css
 
-# Page config
 st.set_page_config(
-    page_title="Research Paper Summarizer",
+    page_title="Paper Chat",
     page_icon="📚",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="centered",
+    initial_sidebar_state="expanded",
 )
+inject_css()
 
-# Load custom CSS
-load_custom_css()
+SUMMARIZE_CMD = "✨ Summarize my library"
+SUGGESTIONS = [
+    ("🧭", "What problem does each paper address?"),
+    ("🧪", "What methods and datasets are used?"),
+    ("⚖️", "Compare the papers: key differences, similarities and strongest results."),
+    ("🚧", "What are the main limitations?"),
+]
 
-# Initialize session state
-if 'papers' not in st.session_state:
-    st.session_state.papers = []
-if 'summaries' not in st.session_state:
-    st.session_state.summaries = []
-if 'meta_summary' not in st.session_state:
-    st.session_state.meta_summary = None
+for key, default in {
+    "papers": [], "messages": [], "search_results": [],
+    "rag_index": None, "rag_signature": None, "toast": None, "show_add": False,
+}.items():
+    st.session_state.setdefault(key, default)
 
-# Header
-header_with_icon(
-    "Research Paper Summarizer",
-    "📚",
-    "AI-powered paper summarization with PEGASUS-ArXiv"
-)
 
-st.markdown("---")
+# ---------- helpers ----------
 
-# Sidebar
-with st.sidebar:
-    st.markdown("### ⚙️ Settings")
-    
-    st.markdown("**Model Configuration**")
-    use_cache = st.checkbox("🚀 Enable Model Caching", value=True)
-    
-    st.markdown("**Display Options**")
-    show_details = st.checkbox("📋 Show Detailed Info", value=True)
-    
-    st.markdown("---")
-    
-    # Stats in sidebar
-    papers_count = len(st.session_state.papers)
-    summaries_count = len(st.session_state.summaries)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        stat_card("Papers", f"{papers_count}", "📄", "primary")
-    with col2:
-        stat_card("Summaries", f"{summaries_count}", "✨", "success")
+@st.cache_resource(show_spinner=False)
+def get_summarizer():
+    return PaperSummarizer()
 
-# Main tabs
-tab1, tab2, tab3 = st.tabs(["🔍 Search Papers", "📤 Upload PDFs", "✨ Summarize"])
 
-# ==============================================================================
-# TAB 1: Search Papers
-# ==============================================================================
-with tab1:
-    header_with_icon("Search Research Papers", "🔍", "Find papers from arXiv & Semantic Scholar")
-    
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
-        search_query = st.text_input(
-            "What are you looking for?",
-            placeholder="e.g., 'transformer attention mechanism'",
-            label_visibility="collapsed"
-        )
-    with col2:
-        max_results = st.number_input("Results", min_value=1, max_value=10, value=5)
-    with col3:
-        search_btn = st.button("🔍 Search", use_container_width=True, type="primary")
-    
-    if search_btn:
-        if search_query:
-            with st.spinner("🔄 Searching for papers..."):
+def add_to_library(new_papers):
+    """Append papers, skipping ones already present. Returns count added."""
+    existing = {paper_label(p, 0) for p in st.session_state.papers}
+    added = 0
+    for p in new_papers:
+        if paper_label(p, 0) not in existing:
+            st.session_state.papers.append(p)
+            existing.add(paper_label(p, 0))
+            added += 1
+    return added
+
+
+def extract_pdf_bytes(data):
+    import PyPDF2
+    reader = PyPDF2.PdfReader(io.BytesIO(data))
+    text = " ".join(" ".join((page.extract_text() or "") for page in reader.pages).split())
+    return text
+
+
+def ensure_index():
+    """Rebuild the FAISS index whenever the library changes."""
+    signature = tuple(
+        (paper_label(p, i), len(p.get('text') or p.get('abstract') or ''))
+        for i, p in enumerate(st.session_state.papers, 1)
+    )
+    if st.session_state.rag_signature != signature:
+        with st.spinner("Indexing your library (first run downloads the embedding model)..."):
+            idx = PaperIndex()
+            idx.build(st.session_state.papers)
+        st.session_state.rag_index = idx
+        st.session_state.rag_signature = signature
+    return st.session_state.rag_index
+
+
+def render_sources(hits):
+    if not hits:
+        return
+    with st.expander(f"📎 {len(hits)} source{'s' if len(hits) != 1 else ''}"):
+        for n, h in enumerate(hits, 1):
+            snippet = h['text'] if len(h['text']) < 600 else h['text'][:600] + "…"
+            st.markdown(
+                f"<div class='src'><b>[{n}] {h['paper']}</b> "
+                f"<small>· similarity {h['score']:.2f}</small><br>{snippet}</div>",
+                unsafe_allow_html=True,
+            )
+
+
+def render_message(msg):
+    with st.chat_message(msg["role"], avatar="🧑‍🔬" if msg["role"] == "user" else "📚"):
+        st.markdown(msg["content"])
+        if msg.get("backend"):
+            st.markdown(f"<div class='meta'>{msg['backend']}</div>", unsafe_allow_html=True)
+        render_sources(msg.get("hits"))
+
+
+def summarize_library():
+    """Run PEGASUS over the library; returns markdown."""
+    texts = [p.get('text') or p.get('abstract') for p in st.session_state.papers]
+    names = [paper_label(p, i) for i, p in enumerate(st.session_state.papers, 1)]
+    keep = [(n, t) for n, t in zip(names, texts) if t]
+    if not keep:
+        return "There is no text to summarize in your library."
+    with st.spinner("Loading PEGASUS-ArXiv (the first run is slow)..."):
+        summarizer = get_summarizer()
+    with st.spinner(f"Summarizing {len(keep)} paper(s)..."):
+        if len(keep) == 1:
+            return f"**{keep[0][0]}**\n\n{summarizer.summarize(keep[0][1], max_length=300, min_length=150)}"
+        summaries, meta = summarizer.summarize_multiple([t for _, t in keep])
+    parts = [f"**{n}**\n\n{s}" for (n, _), s in zip(keep, summaries)]
+    return "\n\n---\n\n".join(parts) + f"\n\n---\n\n### 🎯 Across all papers\n\n{meta}"
+
+
+# ---------- add-papers dialog ----------
+
+def add_papers_panel():
+    """Inline panel (not st.dialog, which is fragile with uploads in Streamlit 1.38)."""
+    head, close = st.columns([6, 1])
+    head.markdown("#### ➕ Add papers")
+    if close.button("✕", key="close_add", help="Close"):
+        st.session_state.show_add = False
+        st.rerun()
+    t_search, t_upload, t_url = st.tabs(["🔍 Search", "📤 Upload PDFs", "🔗 PDF link"])
+
+    with t_search:
+        with st.form("search_form"):
+            c1, c2 = st.columns([4, 1])
+            query = c1.text_input("Search arXiv & Semantic Scholar",
+                                  placeholder="e.g. attention mechanisms in transformers")
+            n = c2.number_input("Results", 1, 10, 5)
+            go = st.form_submit_button("Search", type="primary")
+        if go and query:
+            with st.spinner("Searching..."):
                 try:
-                    retriever = PaperRetriever()
-                    papers = retriever.search(search_query, max_results=int(max_results))
-                    
-                    if papers:
-                        st.session_state.papers = papers
-                        success_box("Search Complete!", f"Found {len(papers)} papers matching your query")
-                        
-                        st.markdown("### 📚 Results")
-                        for i, paper in enumerate(papers, 1):
-                            with st.expander(f"**{i}. {paper['title'][:70]}...**", expanded=i==1):
-                                if isinstance(paper.get('authors'), list):
-                                    authors = ', '.join(paper['authors'][:3])
-                                else:
-                                    authors = str(paper.get('authors', 'N/A'))
-                                
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.markdown(f"**👥 Authors:**  \n{authors}")
-                                    st.markdown(f"**📅 Year:** {paper.get('year', 'N/A')}")
-                                with col2:
-                                    st.markdown(f"**🏢 Source:** {paper.get('source', 'N/A')}")
-                                
-                                st.markdown(f"**Abstract:**  \n{paper.get('abstract', 'N/A')[:400]}...")
-                                if paper.get('pdf_url'):
-                                    st.markdown(f"[📥 Download PDF]({paper['pdf_url']})")
+                    st.session_state.search_results = PaperRetriever().search(query, max_results=int(n))
+                except Exception as e:
+                    st.error(f"Search failed: {e}")
+        chosen = []
+        for i, paper in enumerate(st.session_state.search_results, 1):
+            title = paper.get('title', f'Paper {i}')
+            authors = paper.get('authors', '')
+            if isinstance(authors, list):
+                authors = ', '.join(authors[:3])
+            ck, body = st.columns([1, 14])
+            if ck.checkbox("add", key=f"pick_{i}_{title[:24]}", label_visibility="collapsed"):
+                chosen.append(paper)
+            with body:
+                st.markdown(f"**{title}**  \n<span class='meta'>{authors} · {paper.get('year', '')} · "
+                            f"{paper.get('source', '')}</span>", unsafe_allow_html=True)
+                with st.expander("Abstract"):
+                    st.write(paper.get('abstract', ''))
+        if st.session_state.search_results:
+            b1, b2 = st.columns(2)
+            if b1.button(f"Add {len(chosen)} selected", type="primary", disabled=not chosen,
+                         use_container_width=True):
+                st.session_state.toast = f"Added {add_to_library(chosen)} paper(s)"
+                st.session_state.show_add = False
+                st.rerun()
+            if b2.button("Add all results", use_container_width=True):
+                st.session_state.toast = f"Added {add_to_library(st.session_state.search_results)} paper(s)"
+                st.session_state.show_add = False
+                st.rerun()
+
+    with t_upload:
+        files = st.file_uploader("PDF files", type=["pdf"], accept_multiple_files=True)
+        if st.button("Add uploaded PDFs", type="primary", disabled=not files):
+            new = []
+            for f in files:
+                try:
+                    text = extract_pdf_bytes(f.getvalue())
+                    if len(text) > 100:
+                        new.append({'filename': f.name, 'text': text, 'source': 'upload'})
                     else:
-                        warning_box("No Results", "Try a different search query or check your internet connection")
+                        st.warning(f"Not enough text in {f.name}")
                 except Exception as e:
-                    error_box("Search Error", f"Failed to search papers: {str(e)}")
-        else:
-            info_box("Getting Started", "Enter a search query to find research papers from arXiv and Semantic Scholar", "💡")
+                    st.error(f"{f.name}: {e}")
+            if new:
+                st.session_state.toast = f"Added {add_to_library(new)} paper(s)"
+                st.session_state.show_add = False
+                st.rerun()
 
-# ==============================================================================
-# TAB 2: Upload PDFs
-# ==============================================================================
-with tab2:
-    header_with_icon("Upload Research Papers", "📤", "Upload PDF files to extract and analyze")
-    
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        uploaded_files = st.file_uploader(
-            "Choose PDF files",
-            type=['pdf'],
-            accept_multiple_files=True,
-            label_visibility="collapsed"
-        )
-    with col2:
-        pdf_from_url = st.text_input(
-            "Or paste PDF URL",
-            placeholder="https://example.com/paper.pdf",
-            label_visibility="collapsed"
-        )
-    
-    if uploaded_files or pdf_from_url:
-        info_box("Files Ready", f"{len(uploaded_files)} file(s) selected for processing", "📁")
-        
-        if st.button("📖 Extract Text from PDFs", use_container_width=True, type="primary"):
-            extracted_texts = []
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            total_files = len(uploaded_files) + (1 if pdf_from_url else 0)
-            current_idx = 0
-            
-            # Process uploaded files
-            for idx, uploaded_file in enumerate(uploaded_files):
-                status_text.text(f"📄 Processing: {uploaded_file.name}")
-                
-                with st.spinner(f"Extracting text from {uploaded_file.name}..."):
-                    try:
-                        temp_path = f"temp_{uploaded_file.name}"
-                        with open(temp_path, "wb") as f:
-                            f.write(uploaded_file.getbuffer())
-                        
-                        import PyPDF2
-                        with open(temp_path, 'rb') as f:
-                            pdf_reader = PyPDF2.PdfReader(f)
-                            text = ""
-                            for page in pdf_reader.pages:
-                                text += page.extract_text() + "\n"
-                        
-                        text = ' '.join(text.split())
-                        
-                        if text and len(text) > 100:
-                            extracted_texts.append({
-                                'filename': uploaded_file.name,
-                                'text': text,
-                                'length': len(text)
-                            })
-                            success_box("Extracted", f"{len(text)} characters from {uploaded_file.name}")
-                        else:
-                            warning_box("Warning", f"Insufficient text extracted from {uploaded_file.name}")
-                        
-                        if os.path.exists(temp_path):
-                            os.remove(temp_path)
-                        
-                    except Exception as e:
-                        error_box("Error", f"Failed to extract from {uploaded_file.name}: {str(e)}")
-                
-                current_idx += 1
-                progress_bar.progress(current_idx / total_files if total_files > 0 else 0)
-            
-            # Process URL if provided
-            if pdf_from_url:
-                status_text.text("🌐 Downloading from URL...")
-                
-                with st.spinner("Downloading and extracting from URL..."):
-                    try:
-                        text = extract_text_from_pdf_url(pdf_from_url)
-                        
-                        if text and len(text) > 100:
-                            extracted_texts.append({
-                                'filename': pdf_from_url.split('/')[-1],
-                                'text': text,
-                                'length': len(text)
-                            })
-                            success_box("Extracted", f"{len(text)} characters from URL")
-                        else:
-                            warning_box("Warning", "Insufficient text extracted from URL")
-                    except Exception as e:
-                        error_box("Error", f"Failed to extract from URL: {str(e)}")
-                
-                current_idx += 1
-                progress_bar.progress(current_idx / total_files)
-            
-            status_text.empty()
-            
-            # Final result
-            if extracted_texts:
-                st.session_state.papers = extracted_texts
-                success_box(
-                    "Extraction Complete!",
-                    f"Successfully extracted text from {len(extracted_texts)} file(s). Ready for summarization!"
-                )
-    else:
-        info_box(
-            "Upload Method",
-            "Choose PDF files from your computer or paste a direct PDF URL",
-            "📌"
-        )
-
-# ==============================================================================
-# TAB 3: Summarize
-# ==============================================================================
-with tab3:
-    header_with_icon("Generate Summaries", "✨", "AI-powered paper summarization")
-    
-    if not st.session_state.papers:
-        warning_box(
-            "No Papers Loaded",
-            "Please search for papers or upload PDFs first to generate summaries"
-        )
-    else:
-        info_box(
-            "Ready to Summarize",
-            f"{len(st.session_state.papers)} paper(s) loaded and ready for analysis",
-            "📊"
-        )
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            summary_max_length = st.slider(
-                "📊 Max Summary Length (words)",
-                min_value=100,
-                max_value=500,
-                value=300,
-                step=50
-            )
-        with col2:
-            summary_min_length = st.slider(
-                "📋 Min Summary Length (words)",
-                min_value=50,
-                max_value=250,
-                value=150,
-                step=25
-            )
-        
-        if st.button("✨ Generate Summaries", use_container_width=True, type="primary"):
-            with st.spinner("🤖 Loading PEGASUS-ArXiv model..."):
+    with t_url:
+        url = st.text_input("Direct PDF URL", placeholder="https://arxiv.org/pdf/1706.03762")
+        if st.button("Fetch & add", type="primary", disabled=not url):
+            with st.spinner("Downloading..."):
                 try:
-                    summarizer = PaperSummarizer()
-                    success_box("Model Loaded", "PEGASUS-ArXiv is ready for summarization")
+                    text = extract_text_from_pdf_url(url)
+                    if text and len(text) > 100:
+                        add_to_library([{'filename': url.rstrip('/').split('/')[-1] or url,
+                                         'text': text, 'source': 'upload'}])
+                        st.session_state.toast = "Added paper from link"
+                        st.session_state.show_add = False
+                        st.rerun()
+                    else:
+                        st.warning("Couldn't extract enough text from that link.")
                 except Exception as e:
-                    error_box("Model Loading Error", f"Failed to load model: {str(e)}")
-                    st.stop()
-            
-            # Extract texts from papers
-            papers_text = []
-            for paper in st.session_state.papers:
-                if isinstance(paper, dict):
-                    if 'text' in paper:
-                        papers_text.append(paper['text'])
-                    elif 'abstract' in paper:
-                        papers_text.append(paper['abstract'])
-            
-            if not papers_text:
-                error_box("Error", "No text content found in loaded papers")
-            elif len(papers_text) == 1:
-                # Single paper summarization
-                with st.spinner("📝 Summarizing paper..."):
-                    try:
-                        summary = summarizer.summarize(
-                            papers_text[0],
-                            max_length=summary_max_length,
-                            min_length=summary_min_length
-                        )
-                        st.session_state.summaries = [summary]
-                        
-                        success_box(
-                            "Summary Generated!",
-                            f"Generated a {len(summary.split())} word summary"
-                        )
-                        
-                        st.markdown("### 📋 Paper Summary")
-                        summary_box("Summary", summary, len(summary.split()))
-                        
-                        # Download button
-                        download_text = f"PAPER SUMMARY\n{'='*50}\n\n{summary}"
-                        st.download_button(
-                            label="📥 Download Summary",
-                            data=download_text,
-                            file_name="paper_summary.txt",
-                            mime="text/plain",
-                            use_container_width=True
-                        )
-                    except Exception as e:
-                        error_box("Summarization Error", f"Failed to generate summary: {str(e)}")
-            else:
-                # Multiple papers summarization
-                with st.spinner(f"📝 Summarizing {len(papers_text)} papers..."):
-                    try:
-                        summaries, meta_summary = summarizer.summarize_multiple(papers_text)
-                        st.session_state.summaries = summaries
-                        st.session_state.meta_summary = meta_summary
-                        
-                        success_box(
-                            "All Summaries Generated!",
-                            f"Successfully processed {len(summaries)} papers"
-                        )
-                        
-                        # Individual Summaries
-                        st.markdown("### 📄 Individual Paper Summaries")
-                        for i, (paper, summary) in enumerate(zip(st.session_state.papers, summaries), 1):
-                            paper_name = paper.get('filename', paper.get('title', f'Paper {i}'))
-                            with st.expander(
-                                f"**Paper {i}: {paper_name[:60]}...**",
-                                expanded=(i == 1)
-                            ):
-                                summary_box(f"Summary #{i}", summary, len(summary.split()))
-                        
-                        # Meta Summary
-                        st.markdown("### 🎯 Meta-Summary (All Papers Combined)")
-                        summary_box(
-                            "Combined Analysis",
-                            st.session_state.meta_summary,
-                            len(st.session_state.meta_summary.split())
-                        )
-                        
-                        # Download all
-                        st.markdown("---")
-                        
-                        download_text = "RESEARCH PAPERS SUMMARIES\n"
-                        download_text += "="*60 + "\n\n"
-                        download_text += "INDIVIDUAL SUMMARIES\n"
-                        download_text += "-"*60 + "\n\n"
-                        
-                        for i, summary in enumerate(st.session_state.summaries, 1):
-                            download_text += f"PAPER {i}\n"
-                            download_text += f"{'='*60}\n"
-                            download_text += f"{summary}\n\n"
-                        
-                        download_text += "\nMETA-SUMMARY\n"
-                        download_text += "="*60 + "\n\n"
-                        download_text += st.session_state.meta_summary
-                        
-                        st.download_button(
-                            label="📥 Download All Summaries",
-                            data=download_text,
-                            file_name="all_summaries.txt",
-                            mime="text/plain",
-                            use_container_width=True
-                        )
-                    except Exception as e:
-                        error_box("Summarization Error", f"Failed to generate summaries: {str(e)}")
+                    st.error(f"Failed: {e}")
 
-# Footer
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; padding: 2rem 0'>
-    <p style='color: #94a3b8; margin: 0; font-size: 1.1rem'><strong>🔬 Research Paper Summarizer</strong></p>
-    <p style='color: #64748b; font-size: 0.95rem; margin: 0.5rem 0'>Powered by PEGASUS-ArXiv & Streamlit</p>
-    <p style='color: #475569; font-size: 0.9rem; margin-top: 1rem'>© 2025 Research Paper Summarizer</p>
-</div>
-""", unsafe_allow_html=True)
+
+# ---------- sidebar ----------
+
+with st.sidebar:
+    st.markdown("<div class='brand'>📚 <span>Paper Chat</span></div>", unsafe_allow_html=True)
+    if st.button("➕  Add papers", type="primary", use_container_width=True):
+        st.session_state.show_add = True
+        st.rerun()
+    if st.button("💬  New chat", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+
+    st.markdown("<div class='side-label'>Library</div>", unsafe_allow_html=True)
+    if not st.session_state.papers:
+        st.caption("No papers yet.")
+    for i, p in enumerate(list(st.session_state.papers)):
+        c1, c2 = st.columns([6, 1])
+        c1.markdown(f"<div class='paper-row'>📄 {paper_label(p, i + 1)}</div>", unsafe_allow_html=True)
+        if c2.button("✕", key=f"rm_{i}", help="Remove"):
+            st.session_state.papers.pop(i)
+            st.rerun()
+
+    names = [paper_label(p, i) for i, p in enumerate(st.session_state.papers, 1)]
+    with st.expander("⚙️ Settings"):
+        paper_filter = st.selectbox("Limit to paper", ["All"] + names)
+        min_year = st.number_input("From year", 0, 2100, 0)
+        top_k = st.slider("Passages per answer", 1, 12, 8)
+        search_only = st.toggle("Search only (no generated answer)")
+
+    if st.session_state.messages:
+        transcript = "\n\n".join(
+            f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages)
+        st.download_button("📥 Download chat", transcript, "paper_chat.txt", use_container_width=True)
+
+    st.markdown("<div class='side-label'>Status</div>", unsafe_allow_html=True)
+    if os.environ.get("GROQ_API_KEY"):
+        st.markdown(f"<div class='status'>🟢 Groq connected<br>{GROQ_MODEL}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div class='status'>⚪ Offline mode<br>Set GROQ_API_KEY for AI answers</div>",
+                    unsafe_allow_html=True)
+
+if st.session_state.toast:
+    st.toast(st.session_state.toast, icon="✅")
+    st.session_state.toast = None
+
+
+# ---------- main chat ----------
+
+queued = st.session_state.pop("queued", None)
+
+if st.session_state.show_add:
+    with st.container(border=True):
+        add_papers_panel()
+
+if not st.session_state.messages and not queued and not st.session_state.show_add:
+    st.markdown(
+        "<div class='hero'><h1>Chat with your <span>research papers</span></h1>"
+        "<p>Add papers, then ask questions. Answers cite the exact passages they came from.</p></div>",
+        unsafe_allow_html=True,
+    )
+    if not st.session_state.papers:
+        _, mid, _ = st.columns([1, 2, 1])
+        if mid.button("➕  Add your first papers", type="primary", use_container_width=True, key="cta_add"):
+            st.session_state.show_add = True
+            st.rerun()
+    else:
+        cols = st.columns(2)
+        for n, (icon, text) in enumerate(SUGGESTIONS):
+            if cols[n % 2].button(f"{icon}  {text}", key=f"sugg_{n}", use_container_width=True):
+                st.session_state.queued = text
+                st.rerun()
+        if st.button(SUMMARIZE_CMD, key="sugg_sum", use_container_width=True):
+            st.session_state.queued = SUMMARIZE_CMD
+            st.rerun()
+
+for msg in st.session_state.messages:
+    render_message(msg)
+
+has_papers = bool(st.session_state.papers)
+prompt = st.chat_input(
+    "Ask about your papers..." if has_papers else "Add papers first to start chatting",
+    disabled=not has_papers,
+) or queued
+
+if prompt:
+    history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user", avatar="🧑‍🔬"):
+        st.markdown(prompt)
+
+    reply = {"role": "assistant", "content": "", "backend": None, "hits": []}
+    with st.chat_message("assistant", avatar="📚"):
+        try:
+            if prompt == SUMMARIZE_CMD:
+                reply["content"] = summarize_library()
+                reply["backend"] = "pegasus-arxiv"
+                st.markdown(reply["content"])
+            else:
+                idx = ensure_index()
+                hits = idx.search(
+                    prompt, k=top_k, balanced=True,
+                    paper=None if paper_filter == "All" else paper_filter,
+                    min_year=int(min_year) or None,
+                )
+                reply["hits"] = hits
+                if not hits:
+                    reply["content"] = "I couldn't find anything relevant in your papers. " \
+                                       "Try rephrasing, or check the filters in Settings."
+                    st.markdown(reply["content"])
+                elif search_only:
+                    reply["content"] = "Here are the most relevant passages:"
+                    reply["backend"] = "semantic search"
+                    st.markdown(reply["content"])
+                else:
+                    tokens, backend = stream_answer(prompt, hits, history)
+                    reply["content"] = st.write_stream(tokens)
+                    reply["backend"] = backend
+                    st.markdown(f"<div class='meta'>{backend}</div>", unsafe_allow_html=True)
+                render_sources(hits)
+        except Exception as e:
+            reply["content"] = f"Something went wrong: {e}"
+            st.error(reply["content"])
+    st.session_state.messages.append(reply)
