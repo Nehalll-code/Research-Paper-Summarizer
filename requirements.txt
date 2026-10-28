@@ -1,5 +1,5 @@
 # Lite deploy set (Streamlit Cloud / Render). Local PEGASUS build: requirements-full.txt
-streamlit==1.38.0
+streamlit>=1.40
 faiss-cpu
 fastembed
 langchain-text-splitters
